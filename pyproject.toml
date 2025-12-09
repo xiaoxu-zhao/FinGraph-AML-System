@@ -1,0 +1,51 @@
+[project]
+name = "fingraph-aml-system"
+version = "0.1.0"
+description = "High-performance Anti-Money Laundering (AML) system using Graph Neural Networks"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0.0",
+    "torch-geometric>=2.3.0",
+    "duckdb>=0.9.0",
+    "pydantic>=2.0.0",
+    "streamlit>=1.28.0",
+    "plotly>=5.18.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "kaggle>=1.5.0",
+    "scikit-learn>=1.3.0",
+    "pandas>=2.0.0",
+]
+
+[project.scripts]
+fingraph = "fingraph.api.main:start"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fingraph"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.1.0",
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "I", "B", "UP"]
+ignore = []
+
+[tool.ruff.isort]
+known-first-party = ["fingraph"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra -q"
