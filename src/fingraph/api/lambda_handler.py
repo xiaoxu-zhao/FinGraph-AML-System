@@ -35,19 +35,36 @@ class ModelService:
 
     def _load_model(self):
         logger.info("Loading AML Graph Network model...")
-        # In a real scenario, we would load the PyTorch model here:
-        # model = AML_GraphNetwork(...)
-        # model.load_state_dict(torch.load("model.pt"))
-        return "MockModel"
+        try:
+            from fingraph.core.inference import AMLInference
+            # We initialize the inference engine but don't load data yet to save cold start time
+            # In a real Lambda, we might load a small subgraph from DynamoDB instead of the full CSV
+            self.inference = AMLInference(model_path="/var/task/models/aml_gnn.pt")
+            # For this demo, we assume the model file exists in the container
+            return self.inference
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            return None
 
     def predict(self, transaction: TransactionEvent) -> float:
-        # Simulate inference latency
-        # In reality, we would construct a subgraph around the transaction and pass to GNN
         logger.info(f"Running inference for transaction {transaction.transaction_id}")
         
-        # Mock logic: High amounts are more suspicious for this demo
-        base_prob = 0.01
-        if transaction.amount > 9000:
+        # In a real serverless architecture (Lambda), we cannot load the entire 500k node graph into memory.
+        # Instead, we would fetch the "Ego Graph" (neighbors) of the involved accounts from a graph DB (Neptune/DynamoDB).
+        
+        # For this MVP demonstration, we will use a simplified heuristic if the full graph isn't loaded,
+        # or use the actual model if we can (but likely too heavy for Lambda cold start).
+        
+        # Mock logic for Lambda demo (since we don't have a live GraphDB connection here):
+        # 1. High amounts near structuring limit ($9000-$9999)
+        if 9000 <= transaction.amount < 10000:
+            return 0.85 # High risk (Structuring)
+            
+        # 2. Very high amounts
+        if transaction.amount > 50000:
+            return 0.65 # Medium risk
+            
+        return 0.02 # Low risk
             base_prob += 0.4
         if transaction.amount > 50000:
             base_prob += 0.3

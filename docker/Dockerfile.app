@@ -10,6 +10,10 @@ COPY pyproject.toml .
 COPY src/ ./src/
 COPY README.md .
 
+# Copy trained model and data (Essential for the app to work)
+COPY models/ ./models/
+COPY data/ ./data/
+
 # Install dependencies
 RUN uv pip install --system .
 

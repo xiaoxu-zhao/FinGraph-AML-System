@@ -87,7 +87,23 @@ graph LR
 
 ---
 
-## 4. Technical Implementation Details
+## 4. Advanced: Multi-Task Topology Learning
+
+To make the model "Commercial Grade," we don't just train it to find criminals. We also train it to **understand the graph structure**.
+
+### The Auxiliary Task: Link Prediction
+We added a secondary objective to the training loop:
+*   **Task A (Primary):** Is this node Illicit? (Binary Classification)
+*   **Task B (Auxiliary):** Are these two nodes connected? (Link Prediction)
+
+**Why?**
+By forcing the model to predict missing links, we compel it to learn **richer node embeddings** that capture the topology. If the model can predict that *Node A* is likely to send money to *Node B*, it has truly "understood" the flow of funds.
+
+$$ Loss_{total} = Loss_{classification} + 0.5 \times Loss_{topology} $$
+
+---
+
+## 5. Technical Implementation Details
 
 ### The Model (`src/fingraph/core/model.py`)
 ```python

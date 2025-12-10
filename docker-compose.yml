@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      # Mount source code for hot-reloading during development
+      - ./src:/app/src
+    environment:
+      - PYTHONPATH=/app/src
+    command: streamlit run src/fingraph/api/app.py --server.address=0.0.0.0
+
+  lambda-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.lambda
+    ports:
+      - "9000:8080"
+    volumes:
+      - ./models:/var/task/models

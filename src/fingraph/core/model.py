@@ -56,7 +56,8 @@ class AML_GraphNetwork(torch.nn.Module):
         self, 
         x: torch.Tensor, 
         edge_index: torch.Tensor, 
-        edge_attr: torch.Tensor
+        edge_attr: torch.Tensor,
+        return_embedding: bool = False
     ) -> torch.Tensor:
         """
         Forward pass of the model.
@@ -65,9 +66,10 @@ class AML_GraphNetwork(torch.nn.Module):
             x (torch.Tensor): Node feature matrix [num_nodes, in_channels].
             edge_index (torch.Tensor): Graph connectivity [2, num_edges].
             edge_attr (torch.Tensor): Edge feature matrix [num_edges, edge_dim].
+            return_embedding (bool): If True, returns (logits, embeddings).
 
         Returns:
-            torch.Tensor: Logits for node classification [num_nodes, out_channels].
+            torch.Tensor: Logits [num_nodes, out_channels] OR (logits, embeddings)
         """
         try:
             # Layer 1
@@ -78,10 +80,17 @@ class AML_GraphNetwork(torch.nn.Module):
             # Layer 2
             x = self.conv2(x, edge_index, edge_attr=edge_attr)
             x = F.relu(x)
+            
+            # Capture embedding before final dropout/classifier
+            embedding = x
+            
             x = F.dropout(x, p=self.dropout_p, training=self.training)
 
             # Classifier
             out = self.classifier(x)
+            
+            if return_embedding:
+                return out, embedding
             return out
             
         except Exception as e:

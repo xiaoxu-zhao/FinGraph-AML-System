@@ -166,107 +166,120 @@ with tab3:
     if analyze_btn and target_account:
         engine = st.session_state.inference_engine
         
-        with st.spinner(f"Analyzing Account {target_account}..."):
-            try:
-                # Ensure data is loaded
-                if engine.data is None:
-                    engine.load_data()
-                    engine.load_model()
+        status_container = st.empty()
+        
+        try:
+            # Ensure data is loaded
+            if engine.data is None:
+                status_container.info("⏳ Loading dataset (this happens once)...")
+                engine.load_data()
+                engine.load_model()
+            
+            status_container.info(f"🔍 Analyzing Account {target_account}...")
+            
+            # 1. Get Prediction
+            result = engine.predict_account(target_account)
+            
+            if "error" in result:
+                st.error(result["error"])
+                status_container.empty()
+            else:
+                risk_score = result['risk_score']
+                is_laundering = result['is_laundering']
                 
-                # 1. Get Prediction
-                result = engine.predict_account(target_account)
+                # Display Metrics
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Risk Score", f"{risk_score:.4f}")
+                m2.metric("Prediction", "LAUNDERING" if is_laundering else "Normal", 
+                         delta="-High Risk" if is_laundering else "Safe",
+                         delta_color="inverse")
                 
-                if "error" in result:
-                    st.error(result["error"])
+                # 2. Visualize Subgraph (Ego Graph)
+                st.subheader("Transaction Neighborhood")
+                status_container.info("🕸️ Building Graph Visualization...")
+                
+                # Get neighbors from the PyG data object or DuckDB
+                # Using DuckDB is easier for getting edge details
+                query = f"""
+                SELECT "From_Account", "To_Account", "Amount"
+                FROM transactions 
+                WHERE "From_Account" = '{target_account}' 
+                   OR "To_Account" = '{target_account}'
+                LIMIT 50
+                """
+                edges_df = engine.loader.conn.execute(query).fetchdf()
+                
+                if edges_df.empty:
+                    st.warning("No transactions found for this account.")
                 else:
-                    risk_score = result['risk_score']
-                    is_laundering = result['is_laundering']
-                    
-                    # Display Metrics
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("Risk Score", f"{risk_score:.4f}")
-                    m2.metric("Prediction", "LAUNDERING" if is_laundering else "Normal", 
-                             delta="-High Risk" if is_laundering else "Safe",
-                             delta_color="inverse")
-                    
-                    # 2. Visualize Subgraph (Ego Graph)
-                    st.subheader("Transaction Neighborhood")
-                    
-                    # Get neighbors from the PyG data object or DuckDB
-                    # Using DuckDB is easier for getting edge details
-                    query = f"""
-                    SELECT "From_Account", "To_Account", "Amount"
-                    FROM transactions 
-                    WHERE "From_Account" = '{target_account}' 
-                       OR "To_Account" = '{target_account}'
-                    LIMIT 50
-                    """
-                    edges_df = engine.loader.conn.execute(query).fetchdf()
-                    
-                    if edges_df.empty:
-                        st.warning("No transactions found for this account.")
-                    else:
-                        # Build Graph
-                        G = nx.DiGraph()
-                        for _, row in edges_df.iterrows():
-                            G.add_edge(row['From_Account'], row['To_Account'], amount=row['Amount'])
-                            
-                        # Layout
-                        pos = nx.spring_layout(G, seed=42)
+                    # Build Graph
+                    G = nx.DiGraph()
+                    for _, row in edges_df.iterrows():
+                        G.add_edge(row['From_Account'], row['To_Account'], amount=row['Amount'])
                         
-                        # Edges
-                        edge_x, edge_y = [], []
-                        edge_text = []
-                        for edge in G.edges(data=True):
+                    # Layout
+                    pos = nx.spring_layout(G, seed=42)
+                    
+                    # Edges
+                    edge_x, edge_y = [], []
+                    edge_text = []
+                    for edge in G.edges(data=True):
+                        if edge[0] in pos and edge[1] in pos:
                             x0, y0 = pos[edge[0]]
                             x1, y1 = pos[edge[1]]
                             edge_x.extend([x0, x1, None])
                             edge_y.extend([y0, y1, None])
                             edge_text.append(f"${edge[2]['amount']:.2f}")
 
-                        edge_trace = go.Scatter(
-                            x=edge_x, y=edge_y,
-                            line=dict(width=1, color='#888'),
-                            hoverinfo='text',
-                            text=edge_text,
-                            mode='lines')
+                    edge_trace = go.Scatter(
+                        x=edge_x, y=edge_y,
+                        line=dict(width=1, color='#888'),
+                        hoverinfo='text',
+                        text=edge_text,
+                        mode='lines')
 
-                        # Nodes
-                        node_x, node_y = [], []
-                        node_text = []
-                        node_colors = []
-                        
-                        for node in G.nodes():
+                    # Nodes
+                    node_x, node_y = [], []
+                    node_text = []
+                    node_colors = []
+                    node_sizes = []
+                    
+                    for node in G.nodes():
+                        if node in pos:
                             x, y = pos[node]
                             node_x.append(x)
                             node_y.append(y)
                             node_text.append(node)
                             if node == target_account:
-                                node_colors.append('red')
+                                node_colors.append('#FF4B4B') # Red
+                                node_sizes.append(30)
                             else:
-                                node_colors.append('blue')
+                                node_colors.append('#1F77B4') # Blue
+                                node_sizes.append(15)
 
-                        node_trace = go.Scatter(
-                            x=node_x, y=node_y,
-                            mode='markers+text',
-                            text=node_text,
-                            textposition="top center",
-                            hoverinfo='text',
-                            marker=dict(
-                                color=node_colors,
-                                size=20,
-                                line_width=2))
+                    node_trace = go.Scatter(
+                        x=node_x, y=node_y,
+                        mode='markers', # Removed text to avoid clutter, hover is enough
+                        hoverinfo='text',
+                        text=node_text,
+                        marker=dict(
+                            color=node_colors,
+                            size=node_sizes,
+                            line_width=2))
 
-                        fig = go.Figure(data=[edge_trace, node_trace],
-                                     layout=go.Layout(
-                                        showlegend=False,
-                                        hovermode='closest',
-                                        margin=dict(b=20,l=5,r=5,t=40),
-                                        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                                        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
-                                        )
-                        
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-            except Exception as e:
-                st.error(f"Analysis failed: {e}")
+                    fig = go.Figure(data=[edge_trace, node_trace],
+                                 layout=go.Layout(
+                                    showlegend=False,
+                                    hovermode='closest',
+                                    margin=dict(b=20,l=5,r=5,t=40),
+                                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                status_container.success("Analysis Complete!")
+                    
+        except Exception as e:
+            st.error(f"Analysis failed: {e}")
+            status_container.empty()

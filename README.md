@@ -21,7 +21,16 @@ FinGraph is a system designed to detect complex money laundering typologies (suc
     *   **Node Classification**: Detects illicit entities.
     *   **Link Prediction**: Auxiliary task to force topology learning.
 *   **Visualization**: **Streamlit** & **Plotly** (Interactive Dashboard)
-*   **Infrastructure**: Designed for AWS Lambda (Serverless Inference)
+*   **Infrastructure**: **AWS App Runner** (Serverless Container) & **Docker**
+
+### ☁️ Deployment & Cloud Architecture
+This project is designed with a **Serverless-First** architecture to minimize costs while maintaining scalability.
+
+*   **Containerization**: The entire application is Dockerized (see `docker/Dockerfile.app`).
+*   **Hosting**: Deployed on **AWS App Runner**, which automatically scales the container down to zero when idle. This allows for a cost-effective "Pay-as-you-go" model suitable for portfolio demonstrations.
+*   **Inference**: The model inference logic is decoupled and compatible with **AWS Lambda** for future high-throughput API needs.
+
+👉 **[View Deployment Guide](docs/DEPLOYMENT_GUIDE.md)**
 
 ### 🧠 How It Works
 Want to understand the math and logic behind the GNN?
