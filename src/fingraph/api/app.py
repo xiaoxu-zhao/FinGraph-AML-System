@@ -107,6 +107,29 @@ with tab3:
         except Exception as e:
             st.error(f"Could not initialize inference engine: {e}")
     
+    # --- Demo Data Section ---
+    with st.expander("ℹ️ Need an Account ID? (Demo Data)"):
+        st.write("Try these accounts to see the model in action:")
+        if st.button("Load Sample Accounts"):
+            engine = st.session_state.inference_engine
+            if engine.data is None:
+                with st.spinner("Loading data..."):
+                    engine.load_data()
+            
+            conn = engine.loader.conn
+            try:
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("### 🚨 Known Launderers")
+                    bad_actors = conn.execute("SELECT DISTINCT From_Account FROM transactions WHERE Is_Laundering = 1 LIMIT 5").fetchdf()
+                    st.dataframe(bad_actors, hide_index=True)
+                with c2:
+                    st.markdown("### ✅ Normal Accounts")
+                    good_actors = conn.execute("SELECT DISTINCT From_Account FROM transactions WHERE Is_Laundering = 0 LIMIT 5").fetchdf()
+                    st.dataframe(good_actors, hide_index=True)
+            except Exception as e:
+                st.error(f"Could not load demo data: {e}")
+
     col_search, col_actions = st.columns([3, 1])
     
     with col_search:
