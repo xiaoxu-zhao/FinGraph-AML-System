@@ -18,6 +18,8 @@ App Runner is the best choice because:
 ## 🚀 Step 1: Create a Repository (ECR)
 We need a place to store your Docker image.
 
+> **Tip:** If you are the project owner, check `docs/INTERNAL_DEPLOYMENT_NOTES.md` (git-ignored) for your specific account IDs and quick-run commands.
+
 ```bash
 # 1. Create the repo
 aws ecr create-repository --repository-name fingraph-aml

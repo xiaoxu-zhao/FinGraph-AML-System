@@ -1,3 +1,6 @@
+# Documentation
+docs/INTERNAL_*.md
+
 # Python
 __pycache__/
 *.py[cod]

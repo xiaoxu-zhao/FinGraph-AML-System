@@ -135,3 +135,10 @@ src/fingraph/
 └── utils/
     └── logger.py        # Logging Configuration
 ```
+
+## 🚀 Future Roadmap
+
+*   **Multi-Class Typology Prediction**: Upgrade the model from binary detection (Illicit vs. Licit) to specific typology classification (e.g., "Smurfing", "Cyclic Laundering", "Fan-out").
+*   **Temporal Graph Learning**: Incorporate `Temporal GNNs` (like TGN) to detect patterns that evolve over time, rather than just static snapshots.
+*   **Explainable AI (XAI)**: Implement GNNExplainer to provide human-readable reasons for why a specific account was flagged.
+
