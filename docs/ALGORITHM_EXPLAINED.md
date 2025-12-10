@@ -48,6 +48,30 @@ Let's trace how FinGraph detects a classic **Smurfing** attack:
 **The Scenario:**
 A criminal wants to move $50,000. They split it into 50 transfers of $1,000 each, sent by 50 "Smurfs" (money mules) to one "Receiver" account.
 
+### 📊 Visualizing the Pattern
+```mermaid
+graph LR
+    %% Nodes
+    S1((Smurf 1))
+    S2((Smurf 2))
+    S3((Smurf 3))
+    M((Mule Account))
+    B((Beneficiary))
+
+    %% Edges (Transactions)
+    S1 --"$1,000"--> M
+    S2 --"$1,000"--> M
+    S3 --"$1,000"--> M
+    M --"$3,000 (Aggregated)"--> B
+
+    %% Styling
+    style M fill:#ff4b4b,stroke:#333,stroke-width:4px,color:white
+    style B fill:#ff4b4b,stroke:#333,stroke-width:2px,color:white
+    style S1 fill:#e1e1e1,stroke:#333
+    style S2 fill:#e1e1e1,stroke:#333
+    style S3 fill:#e1e1e1,stroke:#333
+```
+
 **Step 1: Feature Engineering (Input)**
 *   The **Smurfs** have `Out-Degree: 1`, `Out-Volume: $1000`. (Looks normal).
 *   The **Receiver** has `In-Degree: 50`, `In-Volume: $50,000`. (Looks suspicious, but maybe they run a shop?).
