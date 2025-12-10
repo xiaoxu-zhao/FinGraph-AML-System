@@ -114,13 +114,83 @@ class AMLInference:
             
         return {"account": account_id, "risk_score": prob, "is_laundering": prob > 0.5}
 
+    def get_embeddings(self):
+        """Returns the learned node embeddings (useful for visualization/clustering)"""
+        if self.model is None:
+            self.load_model()
+        if self.data is None:
+            self.load_data()
+            
+        with torch.no_grad():
+            _, embeddings = self.model(
+                self.data.x, 
+                self.data.edge_index, 
+                self.data.edge_attr, 
+                return_embedding=True
+            )
+        return embeddings.cpu().numpy()
+
 if __name__ == "__main__":
     # Simple test
     inference = AMLInference()
     try:
-        results = inference.get_high_risk_accounts(threshold=0.9)
+        print("Running inference...")
+        results = inference.get_high_risk_accounts(limit=10)
         print(f"Found {len(results)} high risk accounts.")
         if results:
-            print("Top 5:", results[:5])
+            print("Top 5 Riskiest Accounts:")
+            for r in results[:5]:
+                print(f"  - {r['account']}: {r['risk_score']:.4f}")
+                
+        # Test Embeddings
+        emb = inference.get_embeddings()
+        print(f"Extracted embeddings shape: {emb.shape}")
+        
+        # --- Verification Step ---
+        # Let's check if the top risky accounts are ACTUALLY labeled as launderers in the data
+        print("\n--- Ground Truth Verification ---")
+        # We need to query the database to check the 'Is_Laundering' flag for these accounts
+        # The inference class already has the loader and connection open
+        if inference.loader:
+            conn = inference.loader.conn
+            
+            correct_count = 0
+            for r in results:
+                acc = r['account']
+                # Check if this account was involved in any laundering transaction
+                query = f"""
+                    SELECT MAX("Is_Laundering") 
+                    FROM transactions 
+                    WHERE "From_Account" = '{acc}' OR "To_Account" = '{acc}'
+                """
+                res = conn.execute(query).fetchone()
+                is_actually_bad = res[0] if res else 0
+                
+                status = "✅ CORRECT" if is_actually_bad == 1 else "❌ FALSE POSITIVE"
+                if is_actually_bad == 1: correct_count += 1
+                
+                print(f"Account {acc}: Risk {r['risk_score']:.4f} -> {status}")
+                
+            print(f"\nPrecision on Top 10: {correct_count}/10 ({correct_count * 10}%)")
+            
+            # --- Distribution Analysis ---
+            # This proves if the model is actually learning, or just guessing "Bad" for everyone
+            if hasattr(inference.data, 'y'):
+                y = inference.data.y.cpu()
+                probs = inference.predict_all()[1].cpu()
+                
+                avg_risk_criminals = probs[y == 1].mean().item()
+                avg_risk_innocent = probs[y == 0].mean().item()
+                
+                print("\n--- Model Discrimination Power ---")
+                print(f"Average Risk Score for CRIMINALS: {avg_risk_criminals:.4f}")
+                print(f"Average Risk Score for INNOCENTS: {avg_risk_innocent:.4f}")
+                print(f"Gap: {avg_risk_criminals - avg_risk_innocent:.4f}")
+                
+                if avg_risk_criminals > avg_risk_innocent:
+                    print("✅ SUCCESS: The model assigns higher risk to criminals on average.")
+                else:
+                    print("⚠️ WARNING: The model is not distinguishing well.")
+        
     except Exception as e:
-        print(f"Inference failed (expected if model not trained yet): {e}")
+        print(f"Inference failed: {e}")

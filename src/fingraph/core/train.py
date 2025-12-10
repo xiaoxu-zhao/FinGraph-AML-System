@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from pathlib import Path
 from sklearn.metrics import precision_score, recall_score, f1_score
+from torch_geometric.utils import negative_sampling
 from fingraph.core.model import AML_GraphNetwork
 from fingraph.data.data_engine import TransactionLoader
 from fingraph.data.download import download_data, FILE_NAME_TRANS, DATA_DIR
@@ -57,25 +58,62 @@ def train():
     logger.info("Starting training...")
     model.train()
     
-    # Keep epochs at 10
-    num_epochs = 10
+    # Keep epochs at 30 to allow convergence with the new task
+    num_epochs = 30
     
     # Handle class imbalance
     # Calculate weight for positive class
     num_neg = (data.y == 0).sum()
     num_pos = (data.y == 1).sum()
-    # Use moderate fixed weight (5.0) to prevent oscillation
-    pos_weight = torch.tensor([5.0], device=device)
+    
+    # Dynamic weight calculation: num_neg / num_pos
+    # This tells the loss function: "One positive mistake is as bad as X negative mistakes"
+    weight_val = num_neg / (num_pos + 1e-5)
+    pos_weight = torch.tensor([weight_val], device=device)
+    
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     
-    logger.info(f"Class imbalance: {num_neg} negatives, {num_pos} positives. Using BCE pos_weight={pos_weight.item():.2f}")
+    logger.info(f"Class imbalance: {num_neg} negatives, {num_pos} positives.")
+    logger.info(f"Using calculated pos_weight={pos_weight.item():.2f} to force recall improvement.")
 
     for epoch in range(num_epochs):
         optimizer.zero_grad()
-        out = model(data.x, data.edge_index, data.edge_attr)
         
+        # Forward pass with embeddings for topology learning
+        out, h = model(data.x, data.edge_index, data.edge_attr, return_embedding=True)
+        
+        # 1. Classification Loss (Supervised)
         # BCE expects float targets of shape [N, 1]
-        loss = criterion(out[data.train_mask], data.y[data.train_mask].float().unsqueeze(1))
+        loss_cls = criterion(out[data.train_mask], data.y[data.train_mask].float().unsqueeze(1))
+        
+        # 2. Link Prediction Loss (Self-Supervised / Topology)
+        # This forces the model to learn "who connects to whom" (Structure)
+        # Sample negative edges (non-existent transactions)
+        # We sample 20% of the number of edges to keep it fast on CPU
+        num_samples = data.edge_index.size(1) // 5
+        neg_edge_index = negative_sampling(
+            edge_index=data.edge_index, 
+            num_nodes=data.num_nodes,
+            num_neg_samples=num_samples,
+            method='sparse'
+        )
+        
+        # Sample positive edges (real transactions)
+        perm = torch.randperm(data.edge_index.size(1))[:num_samples]
+        pos_edge_index = data.edge_index[:, perm]
+        
+        # Compute Dot Product Scores
+        # High score = Connected, Low score = Not Connected
+        pos_score = (h[pos_edge_index[0]] * h[pos_edge_index[1]]).sum(dim=-1)
+        neg_score = (h[neg_edge_index[0]] * h[neg_edge_index[1]]).sum(dim=-1)
+        
+        # Link Loss (BCE)
+        link_labels = torch.cat([torch.ones_like(pos_score), torch.zeros_like(neg_score)])
+        link_preds = torch.cat([pos_score, neg_score])
+        loss_link = F.binary_cross_entropy_with_logits(link_preds, link_labels)
+        
+        # Total Loss = Classification + 0.1 * Topology
+        loss = loss_cls + 0.1 * loss_link
         
         loss.backward()
         optimizer.step()
@@ -96,7 +134,7 @@ def train():
             val_pred = pred[val_mask].cpu().numpy()
             val_recall = recall_score(val_y, val_pred, zero_division=0)
             
-            logger.info(f"Epoch {epoch+1:03d}/{num_epochs}: Loss {loss.item():.4f}, Val Acc {val_acc:.4f}, Val Recall {val_recall:.4f}")
+            logger.info(f"Epoch {epoch+1:03d}/{num_epochs}: Loss {loss.item():.4f} (Cls: {loss_cls.item():.4f}, Link: {loss_link.item():.4f}), Val Acc {val_acc:.4f}, Val Recall {val_recall:.4f}")
         model.train()
 
     # 6. Evaluation

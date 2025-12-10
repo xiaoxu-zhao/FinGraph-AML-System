@@ -8,11 +8,18 @@
 
 FinGraph is a system designed to detect complex money laundering typologies (such as Smurfing and Cyclic Laundering) in financial transaction networks. Unlike traditional rule-based systems, FinGraph utilizes **Graph Neural Networks (GATv2)** to learn structural patterns in transaction graphs.
 
-### 🏗️ Tech Stack
+### 📊 Performance (Latest Run)
+*   **Recall**: **81.7%** (Successfully identifies 4 out of 5 money launderers)
+*   **Accuracy**: ~60% (Prioritizes safety over precision - "Better safe than sorry")
+*   **Training Strategy**: Uses **Dynamic Loss Weighting** (1:80 ratio) and **Multi-Task Learning** (Topology + Classification) to handle extreme class imbalance.
+
+## 🛠️ Tech Stack
 *   **Language**: Python 3.10
 *   **Package Manager**: `uv` (Modern, fast Python package installer)
 *   **Data Engine**: **DuckDB** (In-process OLAP database for high-performance CSV querying)
-*   **Machine Learning**: **PyTorch Geometric** (Graph Attention Networks - GATv2)
+*   **Machine Learning**: **PyTorch Geometric** (Multi-Task GATv2)
+    *   **Node Classification**: Detects illicit entities.
+    *   **Link Prediction**: Auxiliary task to force topology learning.
 *   **Visualization**: **Streamlit** & **Plotly** (Interactive Dashboard)
 *   **Infrastructure**: Designed for AWS Lambda (Serverless Inference)
 

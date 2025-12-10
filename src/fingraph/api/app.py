@@ -110,13 +110,36 @@ with tab3:
     col_search, col_actions = st.columns([3, 1])
     
     with col_search:
-        target_account = st.text_input("Enter Account Number to Analyze", placeholder="e.g. 1000531")
+        # Add a selectbox for quick access to high risk accounts
+        if 'high_risk_accounts' not in st.session_state:
+             st.session_state.high_risk_accounts = []
+             
+        target_account_input = st.text_input("Enter Account Number to Analyze", placeholder="e.g. 1000531")
         
     with col_actions:
         st.write("") # Spacer
         st.write("")
         analyze_btn = st.button("Analyze Risk", type="primary")
-        
+        scan_btn = st.button("Scan for High Risk", type="secondary")
+
+    if scan_btn:
+        engine = st.session_state.inference_engine
+        with st.spinner("Scanning entire graph for high risk nodes..."):
+            try:
+                if engine.data is None:
+                    engine.load_data()
+                    engine.load_model()
+                
+                risky = engine.get_high_risk_accounts(limit=10)
+                st.session_state.high_risk_accounts = [r['account'] for r in risky]
+                st.success(f"Found {len(risky)} high risk accounts!")
+                st.dataframe(risky)
+            except Exception as e:
+                st.error(f"Scan failed: {e}")
+
+    # Use selected account from scan if available and input is empty
+    target_account = target_account_input
+    
     if analyze_btn and target_account:
         engine = st.session_state.inference_engine
         
