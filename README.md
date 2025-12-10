@@ -16,6 +16,10 @@ FinGraph is a system designed to detect complex money laundering typologies (suc
 *   **Visualization**: **Streamlit** & **Plotly** (Interactive Dashboard)
 *   **Infrastructure**: Designed for AWS Lambda (Serverless Inference)
 
+### 🧠 How It Works
+Want to understand the math and logic behind the GNN?
+👉 **[Read the Algorithm Explanation](docs/ALGORITHM_EXPLAINED.md)**
+
 ---
 
 ## 🚧 Current Status & Development Log
