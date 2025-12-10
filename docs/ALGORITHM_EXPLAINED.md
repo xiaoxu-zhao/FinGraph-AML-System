@@ -106,8 +106,8 @@ Since money laundering is rare (0.1% of data), we use a **Weighted Loss**.
 
 ---
 
-## 5. Summary for Interviews
+## 5. Summary 
 
-If asked **"How does your AI detect money laundering?"**, you can say:
+**"How does your AI detect money laundering?"**
 
-> "I built a system using **Graph Attention Networks (GATv2)**. Instead of just looking at individual transaction amounts, my model analyzes the **topology** of the transaction graph. It uses an **attention mechanism** to dynamically weigh the importance of different financial connections, allowing it to detect complex structural patterns like **smurfing rings** and **cyclic laundering** that traditional rule-based systems miss."
+"I built a system using **Graph Attention Networks (GATv2)**. Instead of just looking at individual transaction amounts, my model analyzes the **topology** of the transaction graph. It uses an **attention mechanism** to dynamically weigh the importance of different financial connections, allowing it to detect complex structural patterns like **smurfing rings** and **cyclic laundering** that traditional rule-based systems miss."
