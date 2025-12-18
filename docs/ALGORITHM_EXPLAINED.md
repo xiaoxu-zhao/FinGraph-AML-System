@@ -93,6 +93,9 @@ To make the model "Commercial Grade," we don't just train it to find criminals. 
 
 ### The Auxiliary Task: Link Prediction
 We added a secondary objective to the training loop:
+
+
+
 *   **Task A (Primary):** Is this node Illicit? (Binary Classification)
 *   **Task B (Auxiliary):** Are these two nodes connected? (Link Prediction)
 

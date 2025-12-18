@@ -46,19 +46,21 @@ def train():
     # Switch to Binary Classification (out_channels=1) for BCEWithLogitsLoss
     model = AML_GraphNetwork(
         in_channels=16, 
-        hidden_channels=32,
+        hidden_channels=32,  # Reduced from 64 for CPU efficiency
         out_channels=1,
-        heads=4
+        heads=4,             # Reduced from 8 for CPU efficiency
+        dropout=0.5
     ).to(device)
     
     # Moderate learning rate
     optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, min_lr=0.0001)
     
     # 5. Training Loop
     logger.info("Starting training...")
     model.train()
     
-    # Keep epochs at 30 to allow convergence with the new task
+    # Back to 30 epochs - sufficient for this dataset size
     num_epochs = 30
     
     # Handle class imbalance
@@ -122,8 +124,12 @@ def train():
         # Validation
         model.eval()
         with torch.no_grad():
+            # Forward pass for validation
+            val_out = model(data.x, data.edge_index, data.edge_attr)
+            val_loss = criterion(val_out[data.val_mask], data.y[data.val_mask].float().unsqueeze(1))
+            
             # Sigmoid for probability
-            probs = torch.sigmoid(model(data.x, data.edge_index, data.edge_attr))
+            probs = torch.sigmoid(val_out)
             pred = (probs > 0.5).long().squeeze()
             
             val_mask = data.val_mask
@@ -134,7 +140,10 @@ def train():
             val_pred = pred[val_mask].cpu().numpy()
             val_recall = recall_score(val_y, val_pred, zero_division=0)
             
-            logger.info(f"Epoch {epoch+1:03d}/{num_epochs}: Loss {loss.item():.4f} (Cls: {loss_cls.item():.4f}, Link: {loss_link.item():.4f}), Val Acc {val_acc:.4f}, Val Recall {val_recall:.4f}")
+            # Step the scheduler based on validation loss
+            scheduler.step(val_loss)
+            
+            logger.info(f"Epoch {epoch+1:03d}/{num_epochs}: Loss {loss.item():.4f}, Val Loss {val_loss.item():.4f}, Val Acc {val_acc:.4f}, Val Recall {val_recall:.4f}")
         model.train()
 
     # 6. Evaluation
